@@ -23,6 +23,23 @@ import LocalAuthentication
     @objc(isAvailable:)
     func isAvailable(_ command: CDVInvokedUrlCommand){
         let authenticationContext = LAContext();
+        guard let flags = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
+        kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+        SecAccessControlCreateFlags.touchIDAny,
+        nil)else{
+            print("could not create access control");
+            return;
+        }
+        authenticationContext.touchIDAuthenticationAllowableReuseDuration = LATouchIDAuthenticationMaximumAllowableReuseDuration;
+        authenticationContext.evaluateAccessControl(flags, operation: LAAccessControlOperation.useItem, localizedReason: "Login to app", reply: { (success, error) in
+            DispatchQueue.main.async {
+                if success {
+                    print("Successfully eveluate access control");
+                } else {
+                    print("failed eveluate access control");
+                }
+            }
+        })
         var biometryType = "finger";
         var errorResponse: [AnyHashable: Any] = [
             "code": 0,
