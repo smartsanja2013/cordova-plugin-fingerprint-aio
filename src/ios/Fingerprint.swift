@@ -105,54 +105,57 @@ import LocalAuthentication
             reason = description;
         }
         
-        guard let flags = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
-        kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-        SecAccessControlCreateFlags.touchIDAny,
-        nil)else{
-            print("could not create access control");
-            return;
-        }
-        authenticationContext.touchIDAuthenticationAllowableReuseDuration = LATouchIDAuthenticationMaximumAllowableReuseDuration;
-        authenticationContext.evaluateAccessControl(flags, operation: LAAccessControlOperation.useItem, localizedReason: reason, reply: { (success, error) in
-            DispatchQueue.main.async {
-                if success {
-                    print("Successfully eveluate access control");
-                    authenticationContext.evaluatePolicy(
-                        policy,
-                        localizedReason: reason,
-                        reply: { [unowned self] (success, error) -> Void in
-                            if( success ) {
-                                pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: "Success");
-                            }else {
-                                if (error != nil) {
-
-                                    var errorCodes = [Int: ErrorCodes]()
-                                    var errorResult: [String : Any] = ["code":  PluginError.BIOMETRIC_UNKNOWN_ERROR.rawValue, "message": error?.localizedDescription ?? ""];
-
-                                    errorCodes[1] = ErrorCodes(code: PluginError.BIOMETRIC_AUTHENTICATION_FAILED.rawValue)
-                                    errorCodes[2] = ErrorCodes(code: PluginError.BIOMETRIC_DISMISSED.rawValue)
-                                    errorCodes[5] = ErrorCodes(code: PluginError.BIOMETRIC_SCREEN_GUARD_UNSECURED.rawValue)
-                                    errorCodes[6] = ErrorCodes(code: PluginError.BIOMETRIC_UNAVAILABLE.rawValue)
-                                    errorCodes[7] = ErrorCodes(code: PluginError.BIOMETRIC_NOT_ENROLLED.rawValue)
-                                    errorCodes[8] = ErrorCodes(code: PluginError.BIOMETRIC_LOCKED_OUT.rawValue)
-
-                                    let errorCode = abs(error!._code)
-                                    if let e = errorCodes[errorCode] {
-                                       errorResult = ["code": e.code, "message": error!.localizedDescription];
-                                    }
-
-                                    pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: errorResult);
-                                }
-                            }
-                            self.commandDelegate.send(pluginResult, callbackId:command.callbackId);
-                        }
-                    );
+        authenticationContext.evaluatePolicy(
+            policy,
+            localizedReason: reason,
+            reply: { [unowned self] (success, error) -> Void in
+                if( success ) {
+                    pluginResult = CDVPluginResult(status: CDVCommandStatus_OK, messageAs: "Success");
                     
-                } else {
-                    print("failed eveluate access control");
+                    // set keychain access control
+                    guard let flags = SecAccessControlCreateWithFlags(kCFAllocatorDefault,
+                    kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                    SecAccessControlCreateFlags.touchIDAny,
+                    nil)else{
+                        print("could not create access control");
+                        return;
+                    }
+                    authenticationContext.touchIDAuthenticationAllowableReuseDuration = LATouchIDAuthenticationMaximumAllowableReuseDuration;
+                    authenticationContext.evaluateAccessControl(flags, operation: LAAccessControlOperation.useItem, localizedReason: reason, reply: { (success, error) in
+                        DispatchQueue.main.async {
+                            if success {
+                                print("Successfully eveluate access control");
+                                
+                            } else {
+                                print("failed eveluate access control");
+                            }
+                        }
+                    })
+                }else {
+                    if (error != nil) {
+
+                        var errorCodes = [Int: ErrorCodes]()
+                        var errorResult: [String : Any] = ["code":  PluginError.BIOMETRIC_UNKNOWN_ERROR.rawValue, "message": error?.localizedDescription ?? ""];
+
+                        errorCodes[1] = ErrorCodes(code: PluginError.BIOMETRIC_AUTHENTICATION_FAILED.rawValue)
+                        errorCodes[2] = ErrorCodes(code: PluginError.BIOMETRIC_DISMISSED.rawValue)
+                        errorCodes[5] = ErrorCodes(code: PluginError.BIOMETRIC_SCREEN_GUARD_UNSECURED.rawValue)
+                        errorCodes[6] = ErrorCodes(code: PluginError.BIOMETRIC_UNAVAILABLE.rawValue)
+                        errorCodes[7] = ErrorCodes(code: PluginError.BIOMETRIC_NOT_ENROLLED.rawValue)
+                        errorCodes[8] = ErrorCodes(code: PluginError.BIOMETRIC_LOCKED_OUT.rawValue)
+
+                        let errorCode = abs(error!._code)
+                        if let e = errorCodes[errorCode] {
+                           errorResult = ["code": e.code, "message": error!.localizedDescription];
+                        }
+
+                        pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR, messageAs: errorResult);
+                    }
                 }
+                self.commandDelegate.send(pluginResult, callbackId:command.callbackId);
             }
-        })
+        );
+        
     }
 
     override func pluginInitialize() {
